@@ -107,3 +107,41 @@ export interface UserRole {
   role: string;
   created_at: string;
 }
+
+export interface AssignmentPriceCap {
+  id: string;
+  assignment_id: string;
+  max_approved_price: number;
+  currency: string;
+  set_at: string;
+  search_id: string | null;
+  created_at: string;
+}
+
+export interface ReimbursementRequest {
+  id: string;
+  assignment_id: string;
+  consultant_id: string;
+  submitted_amount: number;
+  approved_amount: number | null;
+  currency: string;
+  status: 'pending' | 'under_review' | 'approved' | 'rejected' | 'paid';
+  submission_date: string;
+  review_date: string | null;
+  reviewed_by: string | null;
+  rejection_reason: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ReimbursementAttachment {
+  id: string;
+  reimbursement_id: string;
+  file_name: string;
+  file_url: string;
+  file_type: string | null;
+  file_size: number | null;
+  uploaded_at: string;
+  created_at: string;
+}

@@ -43,7 +43,8 @@ export function FlightOptionsDisplay({ searchId }: FlightOptionsDisplayProps) {
         .from('flight_options')
         .select('*')
         .eq('search_id', searchId)
-        .order('price', { ascending: true });
+        .order('price', { ascending: true })
+        .limit(3);
 
       if (error) throw error;
       setOptions(data || []);

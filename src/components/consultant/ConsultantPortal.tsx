@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { ProjectAssignment, FlightOption, Consultant } from '../../types';
-import { LogOut, Plane, Calendar, MapPin, DollarSign, Clock } from 'lucide-react';
+import { ProjectAssignment, FlightOption, Consultant, AssignmentPriceCap } from '../../types';
+import { LogOut, Plane, Calendar, MapPin, DollarSign, Clock, FileText } from 'lucide-react';
+import { ReimbursementSubmission } from './ReimbursementSubmission';
+import { ReimbursementStatus } from './ReimbursementStatus';
 
 interface AssignmentWithOptions extends ProjectAssignment {
   project?: { client_name: string };
   flight_options?: FlightOption[];
+  price_cap?: AssignmentPriceCap;
 }
 
 export function ConsultantPortal() {
@@ -14,6 +17,7 @@ export function ConsultantPortal() {
   const [consultant, setConsultant] = useState<Consultant | null>(null);
   const [assignments, setAssignments] = useState<AssignmentWithOptions[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'assignments' | 'reimbursement'>('assignments');
 
   useEffect(() => {
     if (user) {
@@ -53,6 +57,12 @@ export function ConsultantPortal() {
                 .order('executed_at', { ascending: false })
                 .limit(1);
 
+              const { data: priceCap } = await supabase
+                .from('assignment_price_caps')
+                .select('*')
+                .eq('assignment_id', assignment.id)
+                .maybeSingle();
+
               if (searches && searches.length > 0) {
                 const { data: options } = await supabase
                   .from('flight_options')
@@ -61,10 +71,10 @@ export function ConsultantPortal() {
                   .order('price', { ascending: true })
                   .limit(3);
 
-                return { ...assignment, flight_options: options || [] };
+                return { ...assignment, flight_options: options || [], price_cap: priceCap };
               }
 
-              return { ...assignment, flight_options: [] };
+              return { ...assignment, flight_options: [], price_cap: priceCap };
             })
           );
 
@@ -182,104 +192,155 @@ export function ConsultantPortal() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h2 className="text-2xl font-bold text-slate-900">Your Travel Assignments</h2>
-          <p className="text-slate-600 mt-1">{assignments.length} active assignments</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900">
+                {activeTab === 'assignments' ? 'Your Travel Assignments' : 'Reimbursement Requests'}
+              </h2>
+              <p className="text-slate-600 mt-1">
+                {activeTab === 'assignments'
+                  ? `${assignments.length} active assignments`
+                  : 'Track your reimbursement submissions'}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setActiveTab('assignments')}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  activeTab === 'assignments'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-slate-200 text-slate-900 hover:bg-slate-300'
+                }`}
+              >
+                <Plane className="w-4 h-4 inline mr-2" />
+                Assignments
+              </button>
+              <button
+                onClick={() => setActiveTab('reimbursement')}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  activeTab === 'reimbursement'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-slate-200 text-slate-900 hover:bg-slate-300'
+                }`}
+              >
+                <FileText className="w-4 h-4 inline mr-2" />
+                Reimbursements
+              </button>
+            </div>
+          </div>
         </div>
 
-        {assignments.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-md p-12 text-center">
-            <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-            <p className="text-slate-600">No travel assignments yet</p>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {assignments.map((assignment) => (
-              <div key={assignment.id} className="bg-white rounded-lg shadow-md overflow-hidden">
-                <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-6 text-white">
-                  <h3 className="text-xl font-bold mb-2">
-                    {assignment.project?.client_name || 'Project'}
-                  </h3>
-                  <div className="flex flex-wrap gap-4 text-sm">
-                    <div className="flex items-center gap-2">
-                      <MapPin className="w-4 h-4" />
-                      {assignment.travel_from_location} → {assignment.travel_to_location}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4" />
-                      {new Date(assignment.departure_date).toLocaleDateString()}
-                      {assignment.return_date && ` - ${new Date(assignment.return_date).toLocaleDateString()}`}
+        {activeTab === 'assignments' ? (
+          assignments.length === 0 ? (
+            <div className="bg-white rounded-lg shadow-md p-12 text-center">
+              <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+              <p className="text-slate-600">No travel assignments yet</p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {assignments.map((assignment) => (
+                <div key={assignment.id} className="bg-white rounded-lg shadow-md overflow-hidden">
+                  <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-6 text-white">
+                    <h3 className="text-xl font-bold mb-2">
+                      {assignment.project?.client_name || 'Project'}
+                    </h3>
+                    <div className="flex flex-wrap gap-4 text-sm">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4" />
+                        {assignment.travel_from_location} → {assignment.travel_to_location}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4" />
+                        {new Date(assignment.departure_date).toLocaleDateString()}
+                        {assignment.return_date && ` - ${new Date(assignment.return_date).toLocaleDateString()}`}
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {assignment.flight_options && assignment.flight_options.length > 0 ? (
-                  <div className="p-6">
-                    <h4 className="font-semibold text-slate-900 mb-4">Flight Options</h4>
-                    <div className="grid gap-4 md:grid-cols-3">
-                      {assignment.flight_options.map((option) => (
-                        <div
-                          key={option.id}
-                          className="border border-slate-200 rounded-lg p-4 hover:border-blue-500 hover:shadow-md transition-all cursor-pointer"
-                        >
-                          <div className="flex items-center justify-between mb-3">
-                            <span className="text-xs font-medium text-slate-500">
-                              Option {option.option_number}
-                            </span>
-                            <span className="text-lg font-bold text-slate-900">
-                              ${option.price}
-                            </span>
-                          </div>
-
-                          <div className="space-y-2 text-sm">
-                            <div className="flex items-center gap-2 text-slate-700">
-                              <Plane className="w-4 h-4" />
-                              <span className="font-medium">{getAirlineName(option.carrier)}</span>
-                            </div>
-
-                            <div className="flex items-center gap-2 text-slate-600">
-                              <Clock className="w-4 h-4" />
-                              {formatDuration(option.total_duration_minutes)}
-                            </div>
-
-                            <div className="text-slate-600">
-                              {option.layovers === 0 ? 'Direct' : `${option.layovers} stop${option.layovers > 1 ? 's' : ''}`}
-                            </div>
-
-                            <div className="flex gap-2 flex-wrap mt-3">
-                              {option.baggage_included && (
-                                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
-                                  Baggage
+                  {assignment.flight_options && assignment.flight_options.length > 0 ? (
+                    <div className="p-6 space-y-6">
+                      <div>
+                        <h4 className="font-semibold text-slate-900 mb-4">Flight Options</h4>
+                        <div className="grid gap-4 md:grid-cols-3">
+                          {assignment.flight_options.map((option) => (
+                            <div
+                              key={option.id}
+                              className="border border-slate-200 rounded-lg p-4 hover:border-blue-500 hover:shadow-md transition-all cursor-pointer"
+                            >
+                              <div className="flex items-center justify-between mb-3">
+                                <span className="text-xs font-medium text-slate-500">
+                                  Option {option.option_number}
                                 </span>
-                              )}
-                              {option.refundable && (
-                                <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
-                                  Refundable
+                                <span className="text-lg font-bold text-slate-900">
+                                  ${option.price}
                                 </span>
-                              )}
-                            </div>
-                          </div>
+                              </div>
 
-                          <a
-                            href={getBookingUrl(option)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="mt-4 block w-full text-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
-                          >
-                            Book Now
-                          </a>
+                              <div className="space-y-2 text-sm">
+                                <div className="flex items-center gap-2 text-slate-700">
+                                  <Plane className="w-4 h-4" />
+                                  <span className="font-medium">{getAirlineName(option.carrier)}</span>
+                                </div>
+
+                                <div className="flex items-center gap-2 text-slate-600">
+                                  <Clock className="w-4 h-4" />
+                                  {formatDuration(option.total_duration_minutes)}
+                                </div>
+
+                                <div className="text-slate-600">
+                                  {option.layovers === 0 ? 'Direct' : `${option.layovers} stop${option.layovers > 1 ? 's' : ''}`}
+                                </div>
+
+                                <div className="flex gap-2 flex-wrap mt-3">
+                                  {option.baggage_included && (
+                                    <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                                      Baggage
+                                    </span>
+                                  )}
+                                  {option.refundable && (
+                                    <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                                      Refundable
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              <a
+                                href={getBookingUrl(option)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="mt-4 block w-full text-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+                              >
+                                Book Now
+                              </a>
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      </div>
+
+                      {assignment.price_cap && (
+                        <div className="border-t border-slate-200 pt-6">
+                          <ReimbursementSubmission
+                            assignment={assignment}
+                            consultantId={consultant?.id || ''}
+                            priceCap={assignment.price_cap}
+                            onSubmitSuccess={() => {}}
+                          />
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ) : (
-                  <div className="p-6 text-center text-slate-600">
-                    <p>Flight options will be sent to you shortly</p>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
+                  ) : (
+                    <div className="p-6 text-center text-slate-600">
+                      <p>Flight options will be sent to you shortly</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )
+        ) : consultant ? (
+          <ReimbursementStatus consultantId={consultant.id} />
+        ) : null}
       </div>
     </div>
   );

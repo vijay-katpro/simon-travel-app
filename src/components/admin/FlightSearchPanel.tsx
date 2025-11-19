@@ -105,6 +105,23 @@ export function FlightSearchPanel({ assignmentId, onSearchComplete }: FlightSear
         throw optionsError;
       }
 
+      const lowestPrice = Math.min(...flightOptions.map(o => o.price));
+      const { error: priceCapError } = await supabase
+        .from('assignment_price_caps')
+        .upsert({
+          assignment_id: assignmentId,
+          max_approved_price: lowestPrice,
+          currency: 'USD',
+          search_id: search.id,
+          set_at: new Date().toISOString()
+        }, {
+          onConflict: 'assignment_id'
+        });
+
+      if (priceCapError) {
+        console.error('Price cap error:', priceCapError);
+      }
+
       await supabase.from('audit_logs').insert({
         action: 'flight_search_executed',
         entity_type: 'flight_search',
